@@ -36,6 +36,9 @@
 using namespace std;
 using namespace sequence_reader;
 
+#define KARLSRUHE_V2_STR "kitti"
+#define BAHNHOFSTRASSE_STR "ethz"
+
 class ObstaclesFromStereo {
 public:
     enum t_Method { SGBM = 0, STEREOVAR = 1, ELAS = 2 };
@@ -68,6 +71,9 @@ public:
     static void getFGMask(const std::string & fileName, cv::Mat & fgMask, const cv::Size & sz);
     
     static void readEgoValues(const std::string & pathName, vector <t_ego_value> & egoValues);
+    
+    static void readVelodynePoints(const std::string & pathName, const uint32_t & idx,
+                                   pcl::PointCloud<pcl::PointXYZI>::Ptr & points);
 
     static void showCameraParams(const t_Camera_params & params);
     

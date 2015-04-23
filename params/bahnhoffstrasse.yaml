@@ -1,0 +1,20 @@
+# kitti / ethz
+sequence_style: "ethz"
+base_path: "/local/imaged/stixels"
+sequence_path: "bahnhof"
+left_pattern: "seq03-img-left/image_%08d_0.png"
+right_pattern: "seq03-img-right/image_%08d_1.png"
+left_calib: "/home/nestor/Dropbox/ros/indigo/nestormh/src/sequence_reader/calib/ethz/left_calib.yaml"
+right_calib: "/home/nestor/Dropbox/ros/indigo/nestormh/src/sequence_reader/calib/kitti/right_calib.yaml"
+ethz_left_calib: "/local/imaged/stixels/bahnhof/cam1.cal"
+ethz_right_calib: "/local/imaged/stixels/bahnhof/cam2.cal"
+markers_list: "/local/imaged/stixels/bahnhof/eth01.idl"
+initial_idx: 1  # 60 # 295 # 1; 295 # 55;
+last_idx: 1000  # 1000
+
+decimation_x: 1
+decimation_y: 1
+x_offset: 51
+y_offset: 35
+width: 532
+height: 413

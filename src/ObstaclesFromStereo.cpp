@@ -844,5 +844,45 @@ vector< visualization_msgs::MarkerArray > ObstaclesFromStereo::readMarkerList(co
     }
     
     return trackletList;
+
 }
+
+void ObstaclesFromStereo::readVelodynePoints(const string& pathName, const uint32_t & idx,
+                                             pcl::PointCloud< pcl::PointXYZI >::Ptr& points)
+{
+    boost::filesystem::path currPath(pathName);
+    
+    currPath /= "velodyne_points/data";
+    
+    stringstream ss;
+    ss << setfill('0') << setw(10) << idx;
+    ss << ".bin";
+    
+    currPath /= ss.str();
+    
+    if (! boost::filesystem::exists(currPath))
+        return;
+    
+    // load point cloud
+    fstream input(currPath.c_str(), std::ios::in | std::ios::binary);
+    if(!input.good()){
+        cerr << "Could not read file: " << currPath.c_str() << endl;
+        exit(-1);
+    }
+    input.seekg(0, std::ios::beg);
+    
+    points.reset(new pcl::PointCloud<pcl::PointXYZI>);
+    
+    int i;
+    for (i=0; input.good() && !input.eof(); i++) {
+        pcl::PointXYZI point;
+        input.read((char *) &point.x, 3*sizeof(float));
+        input.read((char *) &point.intensity, sizeof(float));
+        points->push_back(point);
+    }
+    input.close();
+    
+    cout << "Read KITTI point cloud with " << i << " points" << endl;
+}
+
 

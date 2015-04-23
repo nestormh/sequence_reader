@@ -1,0 +1,18 @@
+# kitti / ethz
+sequence_style: "kitti"
+base_path: "/local/imaged/Karlsruhe"
+sequence_path: "2011_09_28/2011_09_28_drive_0038_sync"
+left_pattern: "image_02/data/%010d.png"
+right_pattern: "image_03/data/%010d.png"
+left_calib: "/home/nestor/Dropbox/ros/indigo/nestormh/src/sequence_reader/calib/kitti/left_calib.yaml"
+right_calib: "/home/nestor/Dropbox/ros/indigo/nestormh/src/sequence_reader/calib/kitti/right_calib.yaml"
+markers_list: "/local/imaged/Karlsruhe/2011_09_26/2011_09_26_drive_0091_sync/tracklet_labels.xml"
+initial_idx: 1 #27 #55 #260 #72 #55;
+last_idx: 109 # 340
+
+decimation_x: 1
+decimation_y: 1
+x_offset: 0
+y_offset: 0
+width: 1039
+height: 270

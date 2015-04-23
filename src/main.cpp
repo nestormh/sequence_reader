@@ -220,15 +220,45 @@ void testStereoTracking() {
     
     GroundTruthManager gtManager;
     
-    const ObstaclesFromStereo::t_CalibrationFileType calibrationType = ObstaclesFromStereo::KARLSRUHE_V2;
-//     const ObstaclesFromStereo::t_CalibrationFileType calibrationTZype = ObstaclesFromStereo::BAHNHOFSTRASSE;
-//     const ObstaclesFromStereo::t_CalibrationFileType calibrationType = ObstaclesFromStereo::FISHEYE;
+    ObstaclesFromStereo::t_CalibrationFileType calibrationType = ObstaclesFromStereo::KARLSRUHE_V2;
+//     ObstaclesFromStereo::t_CalibrationFileType calibrationTZype = ObstaclesFromStereo::BAHNHOFSTRASSE;
+//     ObstaclesFromStereo::t_CalibrationFileType calibrationType = ObstaclesFromStereo::FISHEYE;
     
     ros::NodeHandle nh("~");
     ros::Publisher pointCloudPub = nh.advertise<sensor_msgs::PointCloud2> ("pointCloudStereo", 1);
     ros::Publisher fakePointCloudPub = nh.advertise<sensor_msgs::PointCloud2> ("fakePointCloud", 1);
 //     ros::Publisher deltaTimePub = nh.advertise<std_msgs::Float64> ("deltaTime", 1);
     ros::Publisher clockPub = nh.advertise<rosgraph_msgs::Clock> ("/clock", 1);
+    
+    string sequenceStyleStr;
+    nh.param<string>("sequence_style", sequenceStyleStr, "kitti");
+    
+    if (sequenceStyleStr == KARLSRUHE_V2_STR) {
+        calibrationType = ObstaclesFromStereo::KARLSRUHE_V2;
+    } else if (sequenceStyleStr == BAHNHOFSTRASSE_STR) {
+        calibrationType = ObstaclesFromStereo::BAHNHOFSTRASSE;
+    } else {
+        ROS_ERROR("Unknown sequence style: %s", sequenceStyleStr.c_str());
+        exit(1);
+    }
+
+    string basePath, sequencePath;
+    string leftPattern, rightPattern;
+    string leftCalibFile, rightCalibFile;
+    string markersListFile;
+    int initialIdxParam, lastIdxParam;
+    
+    nh.param<string>("base_path", basePath, "/tmp");
+    nh.param<string>("sequence_path", sequencePath, "sequence");
+    nh.param<string>("left_pattern", leftPattern, "image_02/data/%010d.png");
+    nh.param<string>("right_pattern", rightPattern, "image_03/data/%010d.png");
+    nh.param<string>("left_calib", leftCalibFile, "left_calib.yaml");
+    nh.param<string>("right_calib", rightCalibFile, "right_calib.yaml");
+    nh.param<string>("markers_list", markersListFile, "none");
+    nh.param<string>("markers_list", markersListFile, "none");
+
+    nh.param<int>("initial_idx", initialIdxParam, 0);
+    nh.param<int>("last_idx", lastIdxParam, 999);
     
     int waitTime = 0;
     nh.param<int>("wait_time", waitTime, 0);
@@ -243,6 +273,8 @@ void testStereoTracking() {
     ros::Publisher leftInfoPub = nh.advertise<sensor_msgs::CameraInfo>("left/camera_info", 1);
     ros::Publisher righttInfoPub = nh.advertise<sensor_msgs::CameraInfo>("right/camera_info", 1);
     sensor_msgs::CameraInfo leftCameraInfo, rightCameraInfo;
+    
+    ros::Publisher velodynePub = nh.advertise<sensor_msgs::PointCloud2>("velodyne_points", 1);
     
     uint32_t initialIdx;
     uint32_t lastIdx = 1000;
@@ -287,30 +319,32 @@ void testStereoTracking() {
         }
         case ObstaclesFromStereo::KARLSRUHE_V2:
         {
-            initialIdx = 27; //27; //55; //260; //72; //55;
-            lastIdx = 340;
-            correspondencesPath = boost::filesystem::path("/local/imaged/Karlsruhe");
-            seqName = boost::filesystem::path("2011_09_28/2011_09_28_drive_0038_sync");     // Campus
+            initialIdx = initialIdxParam; //27; //27; //55; //260; //72; //55;
+            lastIdx = lastIdxParam;
+            correspondencesPath = boost::filesystem::path(basePath);
+            seqName = boost::filesystem::path(sequencePath);
+//             seqName = boost::filesystem::path("2011_09_28/2011_09_28_drive_0038_sync");     // Campus
 //             seqName = boost::filesystem::path("2011_09_26/2011_09_26_drive_0015_sync");
 //             seqName = boost::filesystem::path("2011_09_26/2011_09_26_drive_0052_sync");
 //             seqName = boost::filesystem::path("2011_09_26/2011_09_26_drive_0091_sync"); // Pedestrian area
-            leftImagePattern = "image_02/data/%010d.png";
-            rightImagePattern = "image_03/data/%010d.png";
+            leftImagePattern = leftPattern;
+            rightImagePattern = rightPattern;
             
-            ObstaclesFromStereo::getParams("/local/imaged/Karlsruhe/2011_09_28/calib_cam_to_cam.txt", cameraParams, ObstaclesFromStereo::KARLSRUHE_V2);
+            //ObstaclesFromStereo::getParams("/local/imaged/Karlsruhe/2011_09_28/calib_cam_to_cam.txt", cameraParams, ObstaclesFromStereo::KARLSRUHE_V2);
             
             ObstaclesFromStereo::readEgoValues((correspondencesPath / seqName).string(), egoValues);
             
-            string leftCalibFileName = "/local/imaged/Karlsruhe/2011_09_28/left_calib.yaml";
+            string leftCalibFileName = leftCalibFile;
             string leftCameraName = "left_camera";
             camera_calibration_parsers::readCalibrationYml(leftCalibFileName, leftCameraName, leftCameraInfo);
             
-            string rightCalibFileName = "/local/imaged/Karlsruhe/2011_09_28/right_calib.yaml";
+            string rightCalibFileName = rightCalibFile;
             string rightCameraName = "right_camera";
             camera_calibration_parsers::readCalibrationYml(rightCalibFileName, rightCameraName, rightCameraInfo);
             
 //             markers = ObstaclesFromStereo::readMarkerList((correspondencesPath / seqName / "tracklet_labels.xml").string(), lastIdx);
-            markers = ObstaclesFromStereo::readMarkerList("/local/imaged/Karlsruhe/2011_09_26/2011_09_26_drive_0091_sync/tracklet_labels.xml", lastIdx);
+            if (markersListFile != "none")
+                markers = ObstaclesFromStereo::readMarkerList(markersListFile, lastIdx);
             
             leftCameraInfo.header.frame_id = BASE_CAMERA_FRAME_ID;
             rightCameraInfo.header.frame_id = BASE_CAMERA_FRAME_ID;
@@ -319,20 +353,20 @@ void testStereoTracking() {
         }
         case ObstaclesFromStereo::BAHNHOFSTRASSE:
         {
-            initialIdx = 1; //60; //295; //1; 295; //55;
-            lastIdx = 1000;
-            correspondencesPath = boost::filesystem::path("/local/imaged/stixels");
-            seqName = boost::filesystem::path("bahnhof");
-            leftImagePattern = "seq03-img-left/image_%08d_0.png";
-            rightImagePattern = "seq03-img-right/image_%08d_1.png";
+            initialIdx = initialIdxParam;
+            lastIdx = lastIdxParam;
+            correspondencesPath = boost::filesystem::path(basePath);
+            seqName = boost::filesystem::path(sequencePath);
+            leftImagePattern = leftPattern;
+            rightImagePattern = rightPattern;
             
             ObstaclesFromStereo::getParams("/local/imaged/stixels/bahnhof", cameraParams, ObstaclesFromStereo::BAHNHOFSTRASSE);
             
-            string leftCalibFileName = "/local/imaged/stixels/bahnhof/left_calib.yaml";
+            string leftCalibFileName = leftCalibFile;
             string leftCameraName = "left_camera";
             camera_calibration_parsers::readCalibrationYml(leftCalibFileName, leftCameraName, leftCameraInfo);
             
-            string rightCalibFileName = "/local/imaged/stixels/bahnhof/right_calib.yaml";
+            string rightCalibFileName = rightCalibFile;
             string rightCameraName = "right_camera";
             camera_calibration_parsers::readCalibrationYml(rightCalibFileName, rightCameraName, rightCameraInfo);
 
@@ -340,20 +374,26 @@ void testStereoTracking() {
             sprintf(imgName, leftImagePattern.c_str(), initialIdx);
             boost::filesystem::path leftPath = correspondencesPath / seqName / boost::filesystem::path(imgName);
             
-            string leftCalibFile = "/local/imaged/stixels/bahnhof/cam1.cal";
-            string rightCalibFile = "/local/imaged/stixels/bahnhof/cam2.cal";
-            CalibrationManager::readETHZCalibrationParams(leftCalibFile, rightCalibFile, 
+            string ethzLeftCalibFile, ethzRightCalibFile;
+            nh.param<string>("ethz_left_calib", ethzLeftCalibFile, "undef");
+            nh.param<string>("ethz_right_calib", ethzRightCalibFile, "undef");
+
+            if ((ethzLeftCalibFile == "undef") || (ethzLeftCalibFile == "undef")) {
+                ROS_ERROR("Undefined values for ethz_left_calib and ethz_right_calib");
+                exit(1);
+            }
+                
+            CalibrationManager::readETHZCalibrationParams(ethzLeftCalibFile, ethzRightCalibFile, 
                                                         leftPath.c_str(), BASE_CAMERA_FRAME_ID,
                                                         leftCameraInfo, rightCameraInfo);
             
-            cout << leftCameraInfo << endl;
-            cout << rightCameraInfo << endl;
-
             // TODO
-            boost::filesystem::path annotationsFile("eth01.idl");
-            boost::filesystem::path annotationsPath = correspondencesPath / seqName / annotationsFile;
-            gtManager.readETHZSequence(annotationsPath.c_str(), leftCameraInfo, rightCameraInfo);
-            markers = ObstaclesFromStereo::readMarkerList("/local/imaged/Karlsruhe/2011_09_26/2011_09_26_drive_0091_sync/tracklet_labels.xml", lastIdx);
+//             boost::filesystem::path annotationsFile("eth01.idl");
+//             boost::filesystem::path annotationsPath = correspondencesPath / seqName / annotationsFile;
+            if (markersListFile != "none") {
+                gtManager.readETHZSequence(markersListFile.c_str(), leftCameraInfo, rightCameraInfo);
+            }
+//                 markers = ObstaclesFromStereo::readMarkerList("/local/imaged/Karlsruhe/2011_09_26/2011_09_26_drive_0091_sync/tracklet_labels.xml", lastIdx);
             
             break;
         }
@@ -441,6 +481,8 @@ void testStereoTracking() {
     sgbmParams.speckleRange = 32;    
     sgbmParams.fullDP = true;
     
+    pcl::PointCloud< pcl::PointXYZI >::Ptr velodynePoints;
+    
     rosgraph_msgs::Clock clockMsg;
     clockMsg.clock = ros::Time(0.0);
     clockPub.publish(clockMsg);
@@ -471,7 +513,7 @@ void testStereoTracking() {
         cv::Mat leftMask(left.size(), CV_8UC1);
         leftMask.setTo(cv::Scalar(255));
                 
-        if (i == initialIdx) {
+        /*if (i == initialIdx) {
             pointCloudMaker.reset(new ObstaclesFromStereo(cv::Size(left.cols, left.rows), calibrationType));
             pointCloudMaker->setCameraParams(cameraParams.at(0), cameraParams.at(1));
 //             pointCloudMaker->setMethod(ObstaclesFromStereo::SGBM);
@@ -485,7 +527,7 @@ void testStereoTracking() {
             pointCloudMaker->showCameraParams(cameraParams.at(0));
             cout << "Params2" << endl;
             pointCloudMaker->showCameraParams(cameraParams.at(1));
-        }
+        }*/
         
         
         cv::imshow("imgL", left);
@@ -522,6 +564,10 @@ void testStereoTracking() {
 // //                 yaw = 0.0;
 // //                 speed = 0.0;
                 deltaTime = egoValues[i].deltaTime;
+                
+                boost::filesystem::path currPath = correspondencesPath / seqName;
+                ObstaclesFromStereo::readVelodynePoints((correspondencesPath / seqName).c_str(), i, velodynePoints);
+                
                 
                 break;
             }
@@ -595,20 +641,30 @@ void testStereoTracking() {
         leftImgPub.publish(tmpLeft.toImageMsg());
         rightImgPub.publish(tmpRight.toImageMsg());
         
-        visualization_msgs::MarkerArray & markersMsg = markers[i - 1];
-        if (markersMsg.markers.size() > 0) {
-//             BOOST_FOREACH(visualization_msgs::Marker & marker, markersMsg.markers) {
-            for (uint32_t j = 0; j < markersMsg.markers.size(); j++) {
-                visualization_msgs::Marker & marker = markersMsg.markers[j];
-                marker.ns = "tmpMarkers";
-                marker.id = j;
-                marker.header.stamp = ros::Time::now();
-                marker.header.frame_id = CAMERA_FRAME_ID;
+        if (markers.size() != 0) {
+            visualization_msgs::MarkerArray & markersMsg = markers[i - 1];
+            if (markersMsg.markers.size() > 0) {
+    //             BOOST_FOREACH(visualization_msgs::Marker & marker, markersMsg.markers) {
+                for (uint32_t j = 0; j < markersMsg.markers.size(); j++) {
+                    visualization_msgs::Marker & marker = markersMsg.markers[j];
+                    marker.ns = "tmpMarkers";
+                    marker.id = j;
+                    marker.header.stamp = ros::Time::now();
+                    marker.header.frame_id = CAMERA_FRAME_ID;
+                }
+                markersPub.publish(markersMsg);
             }
-            markersPub.publish(markersMsg);
         }
         
         gtManager.publishROI(i - 1);
+        
+        sensor_msgs::PointCloud2 cloudMsg;
+        pcl::toROSMsg (*velodynePoints, cloudMsg);
+        cloudMsg.header.frame_id = "/velodyne";
+        cloudMsg.header.stamp = ros::Time::now();
+        cloudMsg.header.seq = i;
+        
+        velodynePub.publish(cloudMsg);
         
 //         rosgraph_msgs::Clock clockMsg;
 //         clockMsg.clock = ros::Time(accTime);
@@ -639,6 +695,8 @@ void testStereoTracking() {
         //         if (i != initialIdx)
         //             break;
 //         ros::spinOnce();
+        if (i + 1 == lastIdx)
+            i = initialIdx;
     }
 }
 

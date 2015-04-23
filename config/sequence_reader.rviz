@@ -13,6 +13,8 @@ Panels:
         - /StereoAndOdom1/InputCloudStereo1
         - /StereoAndOdom1/LeftImg1
         - /StereoAndOdom1/RightImg1
+        - /StereoAndOdom1/Odometry1
+        - /PointCloud21
       Splitter Ratio: 0.298137
     Tree Height: 357
   - Class: rviz/Selection
@@ -73,6 +75,8 @@ Visualization Manager:
           Value: true
         odom:
           Value: true
+        velodyne:
+          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
@@ -86,6 +90,8 @@ Visualization Manager:
                 base_left_cam:
                   left_cam:
                     {}
+                velodyne:
+                  {}
       Update Interval: 0
       Value: true
     - Class: rviz/Group
@@ -93,14 +99,14 @@ Visualization Manager:
         - Alpha: 0.1
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
+            Max Value: 37.0622
+            Min Value: -26.7196
             Value: true
           Axis: Z
           Channel Name: rgb
           Class: rviz/PointCloud2
           Color: 255; 255; 255
-          Color Transformer: RGB8
+          Color Transformer: AxisColor
           Decay Time: 0
           Enabled: true
           Invert Rainbow: false
@@ -115,13 +121,13 @@ Visualization Manager:
           Size (Pixels): 3
           Size (m): 0.01
           Style: Points
-          Topic: /voxel_grid_tracking/elas_ros/point_cloud
+          Topic: /verdino/sequence_reader/velodyne_points
           Use Fixed Frame: true
-          Use rainbow: true
+          Use rainbow: false
           Value: true
         - Class: rviz/Image
           Enabled: true
-          Image Topic: /verdino/sequence_reader/left/image_raw
+          Image Topic: /verdino/stereo/left/image_rect_color
           Max Value: 1
           Median window: 5
           Min Value: 0
@@ -132,7 +138,7 @@ Visualization Manager:
           Value: true
         - Class: rviz/Image
           Enabled: true
-          Image Topic: /verdino/sequence_reader/right/image_raw
+          Image Topic: /verdino/stereo/right/image_rect_color
           Max Value: 1
           Median window: 5
           Min Value: 0
@@ -149,10 +155,39 @@ Visualization Manager:
           Length: 1
           Name: Odometry
           Position Tolerance: 0.1
-          Topic: /stereo_odometer/odometry
+          Topic: /verdino/stereo_odometer/odometry
           Value: true
       Enabled: true
       Name: StereoAndOdom
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: RGB8
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 4096
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: PointCloud2
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.01
+      Style: Points
+      Topic: /verdino/elas_ros/point_cloud
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 220; 220; 220
@@ -177,22 +212,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/XYOrbit
-      Distance: 8.06214
+      Distance: 18.6137
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 2.24123
-        Y: 1.10835
+        X: -2.19148
+        Y: 0.0165653
         Z: -0.403067
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: -0.389796
+      Pitch: 0.235204
       Target Frame: left_cam
       Value: VideoBahnhoffAbove
-      Yaw: 1.92173
+      Yaw: 3.29674
     Saved:
       - Class: rviz/XYOrbit
         Distance: 20.0678
