@@ -1,0 +1,46 @@
+<launch>
+    <arg name="namespace" default="verdino"/>
+    <arg name="wait_time_sequence_reader" default="2000"/>
+    <arg name="use_rviz" default="true"/>
+    
+    <arg name="static_transforms" default="true" />
+    <arg name="static_odom2basefootprint" default="true" />
+    <arg name="visual_odom" default="false" />
+
+    <param name="use_sim_time" value="true"/>
+    
+    <node if="$(arg static_transforms)" pkg="tf" type="static_transform_publisher" name="map2odom" args="0 0 0 0 0 0 map odom 100" />
+    
+    <node if="$(arg static_odom2basefootprint)" pkg="tf" type="static_transform_publisher" name="odom2basefootprint" args="0 0 0 0 0 0 odom base_footprint 100" />
+    
+    <node if="$(arg static_transforms)" pkg="tf" type="static_transform_publisher" name="basefootprint2baselink" args="0 0 0 -1.57 0 0 base_footprint base_link 100" />
+    <node if="$(arg static_transforms)" pkg="tf" type="static_transform_publisher" name="baselink2baseleftcam" args="0.27 0 1.45 0 0 -1.57079632679489661923 base_link base_left_cam 100" />
+    <node if="$(arg static_transforms)" pkg="tf" type="static_transform_publisher" name="leftcam2baseleftcam" args="0 0 0 0 0 0 base_left_cam left_cam 100" />
+    
+    <node if="$(arg visual_odom)" pkg="viso2_ros" type="stereo_odometer" name="stereo_odometer" output="screen" required="true">
+        <param name="base_link_frame_id" value="base_footprint" />
+        <param name="odom_frame_id" value="odom" />
+        
+        <remap from="stereo/left/image" to="$(arg namespace)/stereo_and_odom/left/image_rect"/>
+        <remap from="stereo/right/image" to="$(arg namespace)/stereo_and_odom/right/image_rect"/>
+        <remap from="stereo/left/camera_info" to="$(arg namespace)/stereo_and_odom/left/camera_info"/>
+        <remap from="stereo/right/camera_info" to="$(arg namespace)/stereo_and_odom/right/camera_info"/>
+    </node>
+    
+    <group ns="$(arg namespace)">
+        <node name="sequence_reader" pkg="sequence_reader" type="sequence_reader" output="screen" required="true" >
+            <param name="wait_time" value="$(arg wait_time_sequence_reader)" />
+        </node> 
+        
+        <group ns="stereo_and_odom">
+            <node name="stereo_image_proc" pkg="stereo_image_proc" type="stereo_image_proc" output="screen" required="true" >
+            </node>
+        </group>
+    </group>
+    
+    <group if="$(arg use_rviz)">
+        <node pkg="rviz" type="rviz" name="rviz" required="false"  args="&#45;&#45;display-config 
+              $(find sequence_reader)/config/sequence_reader.rviz"/>
+    </group>
+    
+    </launch>
