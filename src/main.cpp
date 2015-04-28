@@ -23,6 +23,8 @@
 #include <boost/filesystem.hpp>
 #include <boost/concept_check.hpp>
 
+#include <nav_msgs/Odometry.h>
+
 #include<pcl_conversions/pcl_conversions.h>
 #include "sensor_msgs/PointCloud2.h"
 
@@ -260,10 +262,14 @@ void testStereoTracking() {
     nh.param<int>("initial_idx", initialIdxParam, 0);
     nh.param<int>("last_idx", lastIdxParam, 999);
     
+    bool publishTransform;
+    nh.param<bool>("publish_transform", publishTransform, true);
+    
     int waitTime = 0;
     nh.param<int>("wait_time", waitTime, 0);
     
     ros::Publisher markersPub = nh.advertise<visualization_msgs::MarkerArray> ("tmpMarkers", 1);
+    ros::Publisher odomPub = nh.advertise<visualization_msgs::MarkerArray> ("odom", 1);
     tf::TransformBroadcaster map2odomTfBroadcaster;
     
     image_transport::ImageTransport it(nh);
@@ -287,10 +293,13 @@ void testStereoTracking() {
     
     vector< visualization_msgs::MarkerArray > markers;
     
-    double posX = 0.0, posY = 0.0, posTheta = 0.0, accTime = 0.0;
-    
+    double posX = 0.0, posY = 0.0, posTheta = 0.0;
+    double accTime = 0.0;
+        
     // Params for the fake point cloud
     double radius = 15.0;
+    
+    bool pauseIterations = false;
     
     switch (calibrationType) {
         case ObstaclesFromStereo::DUBLIN:
@@ -487,6 +496,7 @@ void testStereoTracking() {
     clockMsg.clock = ros::Time(0.0);
     clockPub.publish(clockMsg);
     ros::spinOnce();
+    
     for (uint32_t i = initialIdx; i < lastIdx; i++) {
         //         stringstream ss;
         //         ss << setfill('0') << setw(3) << i;
@@ -532,7 +542,6 @@ void testStereoTracking() {
         
         cv::imshow("imgL", left);
         cv::moveWindow("imgL", 0, 0);
-        
         
         //         cv::imshow("imgR", right);
 
@@ -583,14 +592,17 @@ void testStereoTracking() {
             }
         }
         
-        posX += speed * deltaTime * sin(yaw);
-        posY += speed * deltaTime * -cos(yaw);
+        posX += speed * deltaTime * cos(yaw);
+        posY += speed * deltaTime * -sin(yaw);
         posTheta += yaw; 
         accTime += deltaTime;
         cout << "yaw " << yaw << endl;
         cout << "speed " << speed << endl;
         cout << "accTime " << accTime << endl;
         cout << "deltaTime " << deltaTime << endl;
+        cout << "posX " << posX << endl;
+        cout << "posY " << posY << endl;
+        cout << "posTheta " << posTheta << endl;
         
 //         pcl::PointCloud<pcl::PointXYZRGB>::Ptr pointCloud = pointCloudMaker->getPointCloud();
 //         pcl::PointCloud<pcl::PointXYZRGB>::Ptr tmpPointCloud(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -613,18 +625,56 @@ void testStereoTracking() {
 //         publishPointCloud(pointCloudPub, tmpPointCloud, i);
 //         publishFakePointCloud(fakePointCloudPub, radius, i);
         
-        rosgraph_msgs::Clock clockMsg;
-        clockMsg.clock = ros::Time(accTime);
-        clockPub.publish(clockMsg);
-        
-        ros::spinOnce();
+//         rosgraph_msgs::Clock clockMsg;
+//         clockMsg.clock = ros::Time(accTime);
+//         clockPub.publish(clockMsg);
+//         
+//         ros::spinOnce();
         
         static tf::TransformBroadcaster broadcaster;
         tf::StampedTransform transform;
         // TODO: In a real application, time should be taken from the system
-        transform.stamp_ = ros::Time::now();
-        transform.setOrigin(tf::Vector3(-posX, -posY, 0.0));
-        transform.setRotation( tf::createQuaternionFromRPY(0.0, 0.0, posTheta) );
+        transform.stamp_ = ros::Time(accTime);
+        transform.setOrigin(tf::Vector3(posX, posY, 0.0));
+        transform.setRotation( tf::createQuaternionFromRPY(0.0, 0.0, yaw) );
+//         transform.setOrigin(tf::Vector3(speed * deltaTime * sin(yaw), speed * deltaTime * -cos(yaw), 0.0));
+//         transform.setRotation( tf::createQuaternionFromRPY(0.0, 0.0, yaw) );
+        
+        /*geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(posTheta);
+        
+        //first, we'll publish the transform over tf
+        geometry_msgs::TransformStamped transform;
+        transform.header.stamp = ros::Time(accTime);
+        transform.header.frame_id = "odom";
+        transform.child_frame_id = "base_footprint";
+        
+        transform.transform.translation.x = posX;
+        transform.transform.translation.y = posY;
+        transform.transform.translation.z = 0.0;
+        transform.transform.rotation = odom_quat;
+        
+        nav_msgs::Odometry odom;
+        odom.header.stamp = ros::Time(accTime);
+        odom.header.frame_id = "odom";
+        
+        //set the position
+        odom.pose.pose.position.x = posX;
+        odom.pose.pose.position.y = posY;
+        odom.pose.pose.position.z = 0.0;
+        odom.pose.pose.orientation = tf::createQuaternionFromRPY(0.0, 0.0, posTheta);
+        
+        odom.pose.covariance.assign(0.1f);
+        
+        //set the velocity
+//         odom.child_frame_id = m_poseFrame;
+//         odom.twist.twist.linear.x = vx;
+//         odom.twist.twist.linear.y = vy;
+//         odom.twist.twist.angular.z = tmpQuat.getAngle() / m_deltaTime;
+//         
+//         odom.twist.covariance.assign(0.1f);
+        
+        //publish the message
+        m_odomPub.publish(odom);*/
         
         sensor_msgs::Image msgLeft, msgRight;
         cv_bridge::CvImage tmpLeft(msgLeft.header, sensor_msgs::image_encodings::BGR8, left);
@@ -649,7 +699,7 @@ void testStereoTracking() {
                     visualization_msgs::Marker & marker = markersMsg.markers[j];
                     marker.ns = "tmpMarkers";
                     marker.id = j;
-                    marker.header.stamp = ros::Time::now();
+                    marker.header.stamp = ros::Time(accTime);
                     marker.header.frame_id = CAMERA_FRAME_ID;
                 }
                 markersPub.publish(markersMsg);
@@ -658,38 +708,55 @@ void testStereoTracking() {
         
         gtManager.publishROI(i - 1);
         
-        sensor_msgs::PointCloud2 cloudMsg;
-        pcl::toROSMsg (*velodynePoints, cloudMsg);
-        cloudMsg.header.frame_id = "/velodyne";
-        cloudMsg.header.stamp = ros::Time::now();
-        cloudMsg.header.seq = i;
+        if (velodynePoints) {
+            sensor_msgs::PointCloud2 cloudMsg;
+            pcl::toROSMsg (*velodynePoints, cloudMsg);
+            cloudMsg.header.frame_id = "/velodyne";
+            cloudMsg.header.stamp = ros::Time(accTime);
+            cloudMsg.header.seq = i;
+            
+            velodynePub.publish(cloudMsg);
+        }
         
-        velodynePub.publish(cloudMsg);
+        cout << "publish_transform " << publishTransform << endl;
+        if (publishTransform)
+            broadcaster.sendTransform(tf::StampedTransform(transform, ros::Time(accTime), "/odom", "/base_footprint"));
         
-//         rosgraph_msgs::Clock clockMsg;
-//         clockMsg.clock = ros::Time(accTime);
-//         clockPub.publish(clockMsg);
+        ros::spinOnce();
+        
+        rosgraph_msgs::Clock clockMsg;
+        clockMsg.clock = ros::Time(accTime);
+        clockPub.publish(clockMsg);
         
 //         publishPointCloud(pointCloudPub, pointCloud);
-//         broadcaster.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "/map", "/odom"));
         
 //         map2odomTfBroadcaster.sendTransform(
 //             tf::StampedTransform(
 //                 tf::Transform(tf::Quaternion(0, 0, 0, 1), tf::Vector3(posX, posY, 0.0)),
 //                                  ros::Time::now(), "map", "odom"));
-        
+//         rosgraph_msgs::Clock clockMsg;
+//         clockMsg.clock = ros::Time(accTime);
+//         clockPub.publish(clockMsg);
+// 
+//         ros::spinOnce();
         // Publish point cloud
         uint8_t keycode;
 //         if (i < 15)
 //             keycode = cv::waitKey(0);
 //         else
         cout << "deltaTime " << deltaTime << endl;
+        
 //             keycode = cv::waitKey((uint32_t)(deltaTime * 2000));
         keycode = cv::waitKey(waitTime);
         if (keycode == 27) {
             break;
         }
-        ros::spinOnce();
+        if (keycode == 32) {
+            keycode = cv::waitKey(0);
+            if (keycode == 27) {
+                break;
+            }
+        }
         //         }
         
         //         if (i != initialIdx)
@@ -698,6 +765,7 @@ void testStereoTracking() {
         if (i + 1 == lastIdx)
             i = initialIdx;
     }
+    
 }
 
 int main(int argC, char **argV) {
